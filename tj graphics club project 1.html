@@ -12,15 +12,21 @@
         
         const vsSource = ` 
             attribute vec3 position;
+            attribute vec3 color;
+            varying vec3 vColor;
+
             void main(void) {
                 gl_Position = vec4(position, 1.0);
+                vColor = color;
             }
         `;
 
         const fsSource = `
             precision mediump float;
+            varying vec3 vColor;
+
             void main(void) {
-                gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
+                gl_FragColor = vec4(vColor, 1.0);
             }
         `;
 
@@ -52,27 +58,38 @@
 
         
         const vertices = new Float32Array([
-            0.0,  0.5, 0.0,
-            -0.5, -0.5, 0.0,
-            0.5, -0.5, 0.0
+        -0.3,  0.5,  0.5,   0.0, 1.0, 0.0,
+        -0.8, -0.5,  0.5,   0.0, 1.0, 0.0,
+         0.2, -0.5,  0.5,   0.0, 1.0, 0.0,
+
+         0.3,  0.5, -0.5,   1.0, 0.0, 0.0,
+         -0.2, -0.5, -0.5,   1.0, 0.0, 0.0,
+          0.8, -0.5, -0.5,   1.0, 0.0, 0.0
         ]);
 
         const buffer = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
         gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
 
+        const FSIZE = vertices.BYTES_PER_ELEMENT;
+
         const position = gl.getAttribLocation(program, "position");
-        if (position === -1) {
-            console.error("Attribute not found in shader.");
-        }
-        gl.vertexAttribPointer(position, 3, gl.FLOAT, false, 0, 0);
+        gl.vertexAttribPointer(position, 3, gl.FLOAT, false, FSIZE * 6, 0);
         gl.enableVertexAttribArray(position);
 
-        
-        gl.clearColor(1, 1, 1, 1);
-        gl.clear(gl.COLOR_BUFFER_BIT);
+        const color = gl.getAttribLocation(program, "color");
+        gl.vertexAttribPointer(color, 3, gl.FLOAT, false, FSIZE * 6, FSIZE * 3);
+        gl.enableVertexAttribArray(color);
 
-        gl.drawArrays(gl.TRIANGLES, 0, 3);
+        gl.enable(gl.DEPTH_TEST);
+        gl.depthFunc(gl.LEQUAL);
+        gl.clearDepth(1.0);
+
+        gl.clearColor(1, 1, 1, 1);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+        gl.drawArrays(gl.TRIANGLES, 0, vertices.length / 6);
+
     </script>
 </body>
 
