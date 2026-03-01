@@ -16,6 +16,13 @@
             }
             `;
 
+            const fsSource = `
+            precision meduimp float;
+            void main() {
+            gl_Position = vec4(1.0, 0.0, 0.0, 1.0);
+        }
+            `;
+
             function compileShader(type, source) {
                 const shader = gl.createShader(type);
                 gl.shaderSource(shader, source);
@@ -42,7 +49,7 @@
             gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
 
             const position = gl.getAttribLocation(program, "position");
-            gl.vertexAttribPointer(position, 3, gl.FLOAT, flase, 0, 0);
+            gl.vertexAttribPointer(position, 3, gl.FLOAT, false, 0, 0);
             gl.enableVertexAttribArray(position);
 
             gl.clearColor(1,1,1,1);
