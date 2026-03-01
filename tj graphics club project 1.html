@@ -7,6 +7,8 @@
             const canvas = document.getElementById("gcCanvas");
             const gl = canvas.getContext("webgl");
 
+            gl.viewport(0, 0, canvas.width, canvas.height);
+
             const vsSource = ` 
             attribute vec3 position;
             void main() {
@@ -29,7 +31,24 @@
             gl.attachShader(program, fragmentShader);
             gl.linkProgram(program);
             gl.useProgram(program);
-            
+
+            const vertices = new Float32Array([
+                -0.5, 0.0, 0.0,
+                0.5, 0.0, 0.0
+            ]);
+
+            const buffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+            gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+
+            const position = gl.getAttribLocation(program, "position");
+            gl.vertexAttribPointer(position, 3, gl.FLOAT, flase, 0, 0);
+            gl.enableVertexAttribArray(position);
+
+            gl.clearColor(1,1,1,1);
+            gl.clear(gl.COLOR_BUFFER_BIT);
+
+            gl.drawArrays(gl.LINES, 0, 2);
         </script>
     </body>
 </html>
