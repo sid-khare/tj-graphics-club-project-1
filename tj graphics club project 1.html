@@ -10,35 +10,57 @@
         gl.viewport(0, 0, canvas.width, canvas.height);
 
         const vsSource = `
-            attribute vec3 position;
-            uniform mat4 projection;
-            uniform mat4 rotation;
-            uniform mat4 translation;
+           attribute vec3 position;
+            attribute vec3 normal;
 
-            void main(void) {
-                gl_Position = projection * translation * rotation * vec4(position, 1.0);
+            uniform mat4 projection;
+            uniform mat4 modelView;
+
+            varying vec3 vNormal;
+            varying vec3 vPosition;
+
+            void main() {
+                vec4 worldPos = modelView * vec4(position, 1.0);
+                vPosition = worldPos.xyz;
+                vNormal = mat3(modelView) * normal; 
+                gl_Position = projection * worldPos;
             }
         `;
+
+        function rotationY(angle) {
+            const c = Math.cos(angle);
+            const s = Math.sin(angle);
+            return new Float32Array([
+                c, 0, s, 0,
+                0, 1, 0, 0,
+                -s, 0, c, 0,
+                0, 0, 0, 1
+            ]);
+        }
+
+        function translationZ(z) {
+            return new Float32Array([
+                1, 0, 0, 0,
+                0, 1, 0, 0,
+                0, 0, 1, 0,
+                0, 0, z, 1
+            ]);
+        }
 
         const fsSource = `
             precision mediump float;
-            
+
+            varying vec3 vNormal;
+            varying vec3 vPosition;
+
             void main(void) {
-                gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
+                vec3 lightDir = normalize(vec3(1.0, 2.0, 3.0)); // dramatic diagonal light
+                float diff = max(dot(normalize(vNormal), lightDir), 0.0);
+                vec3 baseColor = vec3(1.0, 0.0, 0.0);
+                vec3 color = baseColor * diff;
+                gl_FragColor = vec4(color, 1.0);
             }
         `;
-
-        function compileShader(type, source) {
-            const shader = gl.createShader(type);
-            gl.shaderSource(shader, source);
-            gl.compileShader(shader);
-            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-                console.error(gl.getShaderInfoLog(shader));
-                gl.deleteShader(shader);
-                return null;
-            }
-            return shader;
-        }
 
         const vertexShader = compileShader(gl.VERTEX_SHADER, vsSource);
         const fragmentShader = compileShader(gl.FRAGMENT_SHADER, fsSource);
@@ -53,6 +75,58 @@
         }
         gl.useProgram(program);
 
+
+        const eye = [3, 3, 5];      
+        const target = [0, 0, 0];   
+        const up = [0, 1, 0];       
+
+        const rotationLocation = gl.getUniformLocation(program, "rotation");
+        const translationLocation = gl.getUniformLocation(program, "translation");
+
+        const viewMatrix = lookAt(eye, target, up);
+
+        let angle = 0;
+
+        const rotationMatrix = rotationY(angle);
+        const translationMatrix = translationZ(-2.5);
+
+        const modelMatrix = multiplyMatrices(translationMatrix, rotationMatrix);
+
+        const modelViewMatrix = multiplyMatrices(viewMatrix, modelMatrix);
+
+        const modelViewLocation = gl.getUniformLocation(program, "modelView");
+        gl.uniformMatrix4fv(modelViewLocation, false, modelViewMatrix);
+
+        const projectionLocation = gl.getUniformLocation(program, "projection");
+
+        gl.uniformMatrix4fv(rotationLocation, false, modelViewMatrix);
+
+        function multiplyMatrices(a, b) {
+            const out = new Float32Array(16);
+            for (let i = 0; i < 4; i++) {       
+                for (let j = 0; j < 4; j++) {    
+                    out[j*4 + i] =
+                        a[i] * b[j*4] +
+                        a[i+4] * b[j*4 + 1] +
+                        a[i+8] * b[j*4 + 2] +
+                        a[i+12] * b[j*4 + 3];
+                }
+            }
+            return out;
+        }
+
+        function compileShader(type, source) {
+            const shader = gl.createShader(type);
+            gl.shaderSource(shader, source);
+            gl.compileShader(shader);
+            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                console.error(gl.getShaderInfoLog(shader));
+                gl.deleteShader(shader);
+                return null;
+            }
+            return shader;
+        }
+
         function perspective(fov, aspect, near, far) {
             const f = 1.0 / Math.tan(fov / 2);
             const nf = 1 / (near - far);
@@ -64,6 +138,39 @@
                 0, 0, (2 * far * near) * nf, 0
             ]);
         }
+
+            function lookAt(eye, target, up) {
+                const zAxis = normalize([
+                    eye[0] - target[0],
+                    eye[1] - target[1],
+                    eye[2] - target[2]
+                ]); 
+                const xAxis = normalize(cross(up, zAxis)); 
+                const yAxis = cross(zAxis, xAxis); 
+                return new Float32Array([
+                    xAxis[0], yAxis[0], zAxis[0], 0,
+                    xAxis[1], yAxis[1], zAxis[1], 0,
+                    xAxis[2], yAxis[2], zAxis[2], 0,
+                    -dot(xAxis, eye), -dot(yAxis, eye), -dot(zAxis, eye), 1
+                ]);
+            }
+
+            function normalize(v) {
+                const len = Math.hypot(v[0], v[1], v[2]);
+                return [v[0] / len, v[1] / len, v[2] / len];
+            }
+
+            function cross(a, b) {
+                return [
+                    a[1]*b[2] - a[2]*b[1],
+                    a[2]*b[0] - a[0]*b[2],
+                    a[0]*b[1] - a[1]*b[0]
+                ];
+            }
+
+            function dot(a, b) {
+                return a[0]*b[0] + a[1]*b[1] + a[2]*b[2];
+            }
 
         const projectionMatrix = perspective(
             45 * Math.PI / 180,
@@ -105,12 +212,6 @@
             ]);
         }
 
-        const rotationLocation = gl.getUniformLocation(program, "rotation");
-        const translationLocation = gl.getUniformLocation(program, "translation");
-
-        if (!translationLocation) {
-            console.error("Translation uniform not found!");
-        }
         const vertices = new Float32Array([
             -0.5, -0.5, 0.5,
             0.5, -0.5, 0.5,
@@ -162,6 +263,33 @@
         gl.vertexAttribPointer(position, 3, gl.FLOAT, false, 0, 0);
         gl.enableVertexAttribArray(position);
 
+        const normals = new Float32Array([
+            0, 0, 1,  0, 0, 1,  0, 0, 1,
+            0, 0, 1,  0, 0, 1,  0, 0, 1,
+
+            0, 0, -1,  0, 0, -1,  0, 0, -1,
+            0, 0, -1,  0, 0, -1,  0, 0, -1,
+
+            -1, 0, 0, -1, 0, 0, -1, 0, 0,
+            -1, 0, 0, -1, 0, 0, -1, 0, 0,
+
+            1, 0, 0,  1, 0, 0,  1, 0, 0,
+            1, 0, 0,  1, 0, 0,  1, 0, 0,
+
+            0, 1, 0, 0, 1, 0, 0, 1, 0,
+            0, 1, 0, 0, 1, 0, 0, 1, 0,
+
+            0, -1, 0, 0, -1, 0, 0, -1, 0,
+            0, -1, 0, 0, -1, 0, 0, -1, 0
+        ]);
+
+        const normalBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, normals, gl.STATIC_DRAW);
+
+        const normalAttrib = gl.getAttribLocation(program, "normal");
+        gl.vertexAttribPointer(normalAttrib, 3, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(normalAttrib);
 
         gl.enable(gl.DEPTH_TEST);
         gl.depthFunc(gl.LEQUAL);
@@ -170,23 +298,22 @@
         gl.clearColor(1, 1, 1, 1);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-        let angle = 0;
         function render() {
-            angle += 0.01;
+        angle += 0.01;
 
-            const rotationMatrix = rotationY(angle);
-            const translationMatrix = translation(-2.5);
-            const projectionLocation = gl.getUniformLocation(program, "projection");
+        const rotationMatrix = rotationY(angle);
+        const translationMatrix = translation(0);
+        const modelMatrix = multiplyMatrices(rotationMatrix, translationMatrix);
+        const modelViewMatrix = multiplyMatrices(viewMatrix, modelMatrix);
 
-            gl.uniformMatrix4fv(rotationLocation, false, rotationMatrix);
-            gl.uniformMatrix4fv(translationLocation, false, translationMatrix);
-            gl.uniformMatrix4fv(projectionLocation, false, projectionMatrix);
+        gl.uniformMatrix4fv(modelViewLocation, false, modelViewMatrix);
+        gl.uniformMatrix4fv(projectionLocation, false, projectionMatrix);
 
-            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-            gl.drawArrays(gl.TRIANGLES, 0, vertices.length / 3);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        gl.drawArrays(gl.TRIANGLES, 0, vertices.length / 3);
 
-            requestAnimationFrame(render);
-        }
+        requestAnimationFrame(render);
+    }
 
         render();
     </script>
