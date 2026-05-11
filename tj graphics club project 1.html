@@ -2,7 +2,7 @@
 <html>
 
 <body>
-    <canvas id="gcCanvas" width="600" height="400"></canvas>
+    <canvas id="gcCanvas" width="1200" height="1000"></canvas>
     <script>
         const canvas = document.getElementById("gcCanvas");
         const gl = canvas.getContext("webgl");
@@ -54,7 +54,7 @@
             varying vec3 vPosition;
 
             void main(void) {
-                vec3 lightDir = normalize(vec3(1.0, 2.0, 3.0)); // dramatic diagonal light
+                vec3 lightDir = normalize(vec3(1.0, 2.0, 3.0));
                 float diff = max(dot(normalize(vNormal), lightDir), 0.0);
                 vec3 baseColor = vec3(1.0, 0.0, 0.0);
                 vec3 color = baseColor * diff;
